@@ -1,0 +1,24 @@
+# Rust build output
+/target
+**/target
+
+# Packaging output (large binaries — distribute via GitHub Releases instead)
+/dist/*.dmg
+/dist/*.zip
+/dist/*.exe
+/dist/*.msi
+/dist/MoraNote.app
+/dist/MoraNote
+/dist/.DS_Store
+
+# macOS
+.DS_Store
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+
+# Local scratch files
+/untitled.md
+*.log
