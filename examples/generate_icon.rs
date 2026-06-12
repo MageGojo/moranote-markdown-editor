@@ -30,6 +30,54 @@ fn main() -> anyhow::Result<()> {
         resized.save(PathBuf::from(ICONSET).join(name))?;
     }
 
+    // Windows 图标：把多个尺寸打包成一个 .ico（用于嵌入 exe 与安装包）。
+    write_windows_ico(&master, PathBuf::from(ICON_DIR).join("moranote.ico"))?;
+
+    Ok(())
+}
+
+/// 手写一个 Vista+ 风格的 ICO 文件：文件内每个图标条目直接内嵌完整 PNG 数据。
+/// 这样无需给主程序的 image 依赖开启 `ico` feature，零额外依赖。
+fn write_windows_ico(master: &RgbaImage, path: PathBuf) -> anyhow::Result<()> {
+    // Windows 常用的图标尺寸集合。
+    let sizes = [16u32, 24, 32, 48, 64, 128, 256];
+
+    // 先把每个尺寸编码成 PNG 字节。
+    let mut pngs: Vec<(u32, Vec<u8>)> = Vec::with_capacity(sizes.len());
+    for &size in &sizes {
+        let resized = image::imageops::resize(master, size, size, FilterType::Lanczos3);
+        let mut buffer = std::io::Cursor::new(Vec::new());
+        resized.write_to(&mut buffer, image::ImageFormat::Png)?;
+        pngs.push((size, buffer.into_inner()));
+    }
+
+    let mut out: Vec<u8> = Vec::new();
+    // ICONDIR 头：reserved(0) | type(1=icon) | count
+    out.extend_from_slice(&0u16.to_le_bytes());
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&(pngs.len() as u16).to_le_bytes());
+
+    // 每个条目的图像数据从 ICONDIR(6) + 16 * count 之后开始。
+    let mut offset = 6u32 + 16u32 * pngs.len() as u32;
+    for (size, png) in &pngs {
+        // ICONDIRENTRY：width/height（256 用 0 表示）| colorCount | reserved
+        let dim = if *size >= 256 { 0u8 } else { *size as u8 };
+        out.push(dim); // width
+        out.push(dim); // height
+        out.push(0); // color palette count
+        out.push(0); // reserved
+        out.extend_from_slice(&1u16.to_le_bytes()); // color planes
+        out.extend_from_slice(&32u16.to_le_bytes()); // bits per pixel
+        out.extend_from_slice(&(png.len() as u32).to_le_bytes()); // bytes in image
+        out.extend_from_slice(&offset.to_le_bytes()); // image data offset
+        offset += png.len() as u32;
+    }
+    // 紧跟着所有 PNG 数据。
+    for (_size, png) in &pngs {
+        out.extend_from_slice(png);
+    }
+
+    fs::write(path, out)?;
     Ok(())
 }
 

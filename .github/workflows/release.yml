@@ -1,0 +1,101 @@
+name: Release Packages
+
+# 打 tag（如 v0.1.1）时自动构建 macOS 与 Windows 安装包并发布到 Release。
+# 也可在 Actions 页手动触发（workflow_dispatch）。
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # macOS：构建 .app 并打包成 .dmg
+  # ---------------------------------------------------------------------------
+  build-macos:
+    name: Build macOS (.dmg)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build DMG
+        run: |
+          chmod +x scripts/build-dmg.sh
+          ./scripts/build-dmg.sh
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Windows：构建 .exe（带嵌入图标），打包便携 zip + Inno Setup 安装包
+  # ---------------------------------------------------------------------------
+  build-windows:
+    name: Build Windows (.zip + setup.exe)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Regenerate app icon (.ico)
+        run: cargo run --example generate_icon
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows package
+        shell: pwsh
+        run: |
+          # 确保 Inno Setup 的 iscc.exe 在 PATH 中。
+          $inno = "C:\Program Files (x86)\Inno Setup 6"
+          if (Test-Path $inno) { $env:PATH = "$inno;$env:PATH" }
+          powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package
+          path: |
+            dist/*.zip
+            dist/*-setup.exe
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # 汇总产物并创建 / 更新 GitHub Release（仅在打 tag 时）
+  # ---------------------------------------------------------------------------
+  release:
+    name: Publish Release
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/macos-dmg/*
+            artifacts/windows-package/*
+          generate_release_notes: true
+          fail_on_unmatched_files: false

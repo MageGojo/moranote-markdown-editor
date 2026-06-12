@@ -59,6 +59,10 @@ $ThemeDst = Join-Path $StageDir "assets\themes\morandigarden"
 New-Item -ItemType Directory -Path $ThemeDst -Force | Out-Null
 Copy-Item (Join-Path $ThemeSrc "*") $ThemeDst -Recurse -Force
 
+# Bundle the app icon (used by the installer and as a fallback resource).
+$IcoSrc = Join-Path $RepoDir "assets\app-icons\moranote.ico"
+if (Test-Path $IcoSrc) { Copy-Item $IcoSrc (Join-Path $StageDir "moranote.ico") -Force }
+
 # Optional: include a license / readme if present.
 foreach ($doc in @("README.md", "LICENSE")) {
     $docPath = Join-Path $RepoDir $doc
@@ -94,6 +98,8 @@ SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 DisableProgramGroupPage=yes
 WizardStyle=modern
+SetupIconFile=$RepoDir\assets\app-icons\moranote.ico
+UninstallDisplayIcon={app}\$ExeName
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -103,8 +109,8 @@ Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.i
 Source: "$StageDir\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\$AppName"; Filename: "{app}\$ExeName"
-Name: "{autodesktop}\$AppName"; Filename: "{app}\$ExeName"; Tasks: desktopicon
+Name: "{group}\$AppName"; Filename: "{app}\$ExeName"; IconFilename: "{app}\$ExeName"
+Name: "{autodesktop}\$AppName"; Filename: "{app}\$ExeName"; IconFilename: "{app}\$ExeName"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked

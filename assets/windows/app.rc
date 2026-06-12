@@ -1,0 +1,3 @@
+// Windows resource script — embeds the MoraNote application icon into the .exe.
+// The first icon resource (lowest ID) is what Explorer / the taskbar use.
+1 ICON "assets/app-icons/moranote.ico"

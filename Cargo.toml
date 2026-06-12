@@ -21,6 +21,9 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSUserDefaults", "NSString"] }
 
+[target.'cfg(target_os = "windows")'.build-dependencies]
+embed-resource = "3"
+
 [profile.release]
 opt-level = "z"
 lto = true
